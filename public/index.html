@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Invoice Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white p-8 rounded-xl shadow-md max-w-lg w-full space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">Prompt-to-Invoice</h1>
+      <p class="text-sm text-slate-500">Powered by Containerized Backend & Headless Chrome</p>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Invoice Instruction</label>
+      <textarea id="promptInput" rows="3" class="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+        placeholder="e.g. Bill Acme Corp for 10 hours of backend integration at $80/hr"></textarea>
+    </div>
+
+    <button id="processBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition">
+      Parse & Generate Server PDF
+    </button>
+
+    <div id="status" class="text-center text-sm font-medium text-slate-600 hidden"></div>
+  </div>
+
+  <script>
+    const processBtn = document.getElementById('processBtn');
+    const promptInput = document.getElementById('promptInput');
+    const status = document.getElementById('status');
+
+    processBtn.addEventListener('click', async () => {
+      const prompt = promptInput.value.trim();
+      if (!prompt) return alert('Please enter a description');
+
+      status.classList.remove('hidden');
+      status.innerText = "Parsing request...";
+
+      try {
+        // Step 1: Call API to parse input
+        const parseRes = await fetch('/api/parse-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        const invoiceData = await parseRes.json();
+
+        status.innerText = "Spawning headless Chromium inside container to render PDF...";
+
+        // Step 2: Request server-rendered PDF
+        const pdfRes = await fetch('/api/generate-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(invoiceData)
+        });
+
+        const blob = await pdfRes.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${invoiceData.invoiceNumber}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        status.innerText = "PDF downloaded successfully!";
+      } catch (err) {
+        status.innerText = "Error generating invoice.";
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
